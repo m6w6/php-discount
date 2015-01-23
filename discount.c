@@ -54,14 +54,14 @@ static zend_function_entry discount_functions[] = {
 /* {{{ Globals' related activities */
 ZEND_DECLARE_MODULE_GLOBALS(discount);
 
-static void ZEND_MODULE_GLOBALS_CTOR_N(discount)(void *arg TSRMLS_DC) /* {{{ */
+static void ZEND_MODULE_GLOBALS_CTOR_N(discount)(void *arg) /* {{{ */
 {
 	zend_discount_globals *discount_globals = arg;
 	/* empty */
 }
 /* }}} */
 
-static void ZEND_MODULE_GLOBALS_DTOR_N(discount)(void *arg TSRMLS_DC) /* {{{ */
+static void ZEND_MODULE_GLOBALS_DTOR_N(discount)(void *arg) /* {{{ */
 {
 	/* empty */
 }

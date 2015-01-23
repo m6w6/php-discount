@@ -47,19 +47,19 @@ PHP_METHOD(markdowndoc, getHtml)
 	if (zend_parse_parameters_none() == FAILURE) {
 		RETURN_FALSE;
 	}
-	if ((dobj = markdowndoc_get_object(getThis(), 1 TSRMLS_CC)) == NULL) {
+	if ((dobj = markdowndoc_get_object(getThis(), 1)) == NULL) {
 		RETURN_FALSE;
 	}
 	
 	status = mkd_document(dobj->markdoc, &data);
 	if (status < 0) {
 		/* should never happen, but... */
-		zend_throw_exception_ex(spl_ce_RuntimeException, 0 TSRMLS_CC,
+		zend_throw_exception_ex(spl_ce_RuntimeException, 0,
 			"Call to library function mkd_document() failed (should not happen!)");
 		RETURN_FALSE;
 	}
 	assert(data != NULL);
-	RETURN_STRINGL(data, status, 0);	
+	RETURN_STR(php_discount_cs2zs(data, status));
 }
 /* }}} */
 
@@ -73,20 +73,20 @@ PHP_METHOD(markdowndoc, writeHtml)
 	FILE			*f;
 	int				status;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &zstream) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "z", &zstream) == FAILURE) {
 		RETURN_FALSE;
 	}
-	if ((dobj = markdowndoc_get_object(getThis(), 1 TSRMLS_CC)) == NULL) {
+	if ((dobj = markdowndoc_get_object(getThis(), 1)) == NULL) {
 		RETURN_FALSE;
 	}
-	if (markdowndoc_get_file(zstream, 1, &stream, &close, &f TSRMLS_CC) == FAILURE) {
+	if (markdowndoc_get_file(zstream, 1, &stream, &close, &f) == FAILURE) {
 		RETURN_FALSE;
 	}
 	
 	status = mkd_generatehtml(dobj->markdoc, f);
-	markdown_sync_stream_and_file(stream, close, f TSRMLS_CC);
+	markdown_sync_stream_and_file(stream, close, f);
 
-	if (markdown_handle_io_error(status, "mkd_generatehtml" TSRMLS_CC) == FAILURE) {
+	if (markdown_handle_io_error(status, "mkd_generatehtml") == FAILURE) {
 		RETURN_FALSE;
 	}
 	
@@ -104,20 +104,20 @@ PHP_METHOD(markdowndoc, writeXhtmlPage)
 	FILE			*f;
 	int				status;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &zstream) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "z", &zstream) == FAILURE) {
 		RETURN_FALSE;
 	}
-	if ((dobj = markdowndoc_get_object(getThis(), 1 TSRMLS_CC)) == NULL) {
+	if ((dobj = markdowndoc_get_object(getThis(), 1)) == NULL) {
 		RETURN_FALSE;
 	}
-	if (markdowndoc_get_file(zstream, 1, &stream, &close, &f TSRMLS_CC) == FAILURE) {
+	if (markdowndoc_get_file(zstream, 1, &stream, &close, &f) == FAILURE) {
 		RETURN_FALSE;
 	}
 	
 	status = mkd_xhtmlpage(dobj->markdoc, f);
-	markdown_sync_stream_and_file(stream, close, f TSRMLS_CC);
+	markdown_sync_stream_and_file(stream, close, f);
 
-	if (markdown_handle_io_error(status, "mkd_xhtmlpage" TSRMLS_CC) == FAILURE) {
+	if (markdown_handle_io_error(status, "mkd_xhtmlpage") == FAILURE) {
 		RETURN_FALSE;
 	}
 	

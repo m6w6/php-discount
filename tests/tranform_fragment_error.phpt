@@ -22,7 +22,7 @@ bool(false)
 Warning: MarkdownDocument::transformFragment() expects at most 2 parameters, 3 given in %s on line %d
 bool(false)
 
-Warning: MarkdownDocument::transformFragment() expects parameter 2 to be long, array given in %s on line %d
+Warning: MarkdownDocument::transformFragment() expects parameter 2 to be integer, array given in %s on line %d
 bool(false)
 
 Done.

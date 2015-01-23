@@ -42,16 +42,16 @@
 PHP_METHOD(markdowndoc, compile)
 {
 	discount_object	*dobj;
-	long			flags = 0;
+	zend_long		flags = 0;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|l", &flags) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "|l", &flags) == FAILURE) {
 		RETURN_FALSE;
 	}
-	if ((dobj = markdowndoc_get_object(getThis(), 0 TSRMLS_CC)) == NULL) {
+	if ((dobj = markdowndoc_get_object(getThis(), 0)) == NULL) {
 		RETURN_FALSE;
 	}
 	if (mkd_is_compiled(dobj->markdoc)) {
-		zend_throw_exception_ex(spl_ce_LogicException, 0 TSRMLS_CC,
+		zend_throw_exception_ex(spl_ce_LogicException, 0,
 			"Invalid state: the markdown document has already been compiled");
 		RETURN_FALSE;
 	}
@@ -71,7 +71,7 @@ PHP_METHOD(markdowndoc, isCompiled)
 	if (zend_parse_parameters_none() == FAILURE) {
 		RETURN_FALSE;
 	}
-	if ((dobj = markdowndoc_get_object(getThis(), 0 TSRMLS_CC)) == NULL) {
+	if ((dobj = markdowndoc_get_object(getThis(), 0)) == NULL) {
 		RETURN_FALSE;
 	}
 	
@@ -88,28 +88,28 @@ PHP_METHOD(markdowndoc, dumpTree)
 	int				close;
 	FILE			*f;
 	char			*title		= "";
-	int				title_len	= 0;
+	size_t			title_len	= 0;
 	int				status;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z|s",
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "z|s",
 			&zstream, &title, &title_len) == FAILURE) {
 		RETURN_FALSE;
 	}
-	if ((dobj = markdowndoc_get_object(getThis(), 1 TSRMLS_CC)) == NULL) {
+	if ((dobj = markdowndoc_get_object(getThis(), 1)) == NULL) {
 		RETURN_FALSE;
 	}
-	if (markdowndoc_get_file(zstream, 1, &stream, &close, &f TSRMLS_CC) == FAILURE) {
+	if (markdowndoc_get_file(zstream, 1, &stream, &close, &f) == FAILURE) {
 		RETURN_FALSE;
 	}
 
 	status = mkd_dump(dobj->markdoc, f, title);
 
-	markdown_sync_stream_and_file(stream, close, f TSRMLS_CC);
+	markdown_sync_stream_and_file(stream, close, f);
 	
 	if (status == -1) {
 		/* should never happen */
 		zend_throw_exception(spl_ce_RuntimeException,
-			"Error dumping tree: call to the library failed", 0 TSRMLS_CC);
+			"Error dumping tree: call to the library failed", 0);
 		RETURN_FALSE;
 	}
 
@@ -120,13 +120,13 @@ PHP_METHOD(markdowndoc, dumpTree)
 /* {{{ proto string MarkdownDocument::transformFragment(string $markdown_fragment [, int $flags = 0 ]) */
 PHP_METHOD(markdowndoc, transformFragment)
 {
-	char	*markdown;
-	int		markdown_len;
-	long	flags		= 0;
-	char	*out		= NULL;
-	int		out_len;
+	char		*markdown;
+	size_t		markdown_len;
+	zend_long	flags		= 0;
+	char		*out		= NULL;
+	int			out_len;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|l",
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "s|l",
 			&markdown, &markdown_len, &flags) == FAILURE) {
 		RETURN_FALSE;
 	}
@@ -137,15 +137,14 @@ PHP_METHOD(markdowndoc, transformFragment)
 
 	out_len = mkd_line(markdown, markdown_len, &out, (mkd_flag_t) flags);
 	if (out_len < 0) {
+		if (out) {
+			efree(out);
+		}
 		zend_throw_exception(spl_ce_RuntimeException,
-			"Error parsing the fragment", 0 TSRMLS_CC);
+			"Error parsing the fragment", 0);
 		RETVAL_FALSE;
 	} else {
-		RETVAL_STRINGL(out, out_len, 0);
-	}
-
-	if (Z_TYPE_P(return_value) == IS_BOOL && out != NULL) {
-		efree(out);
+		RETVAL_STR(php_discount_cs2zs(out, out_len));
 	}
 }
 /* }}} */
@@ -154,26 +153,26 @@ PHP_METHOD(markdowndoc, transformFragment)
 PHP_METHOD(markdowndoc, writeFragment)
 {
 	char		*markdown;
-	int			markdown_len;
-	long		flags		= 0;
+	size_t		markdown_len;
+	zend_long	flags		= 0;
 	zval		*zstream;
 	php_stream	*stream;
 	int			close;
 	FILE		*f;
 	int			status;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sz|l",
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "sz|l",
 			&markdown, &markdown_len, &zstream, &flags) == FAILURE) {
 		RETURN_FALSE;
 	}
-	if (markdowndoc_get_file(zstream, 1, &stream, &close, &f TSRMLS_CC) == FAILURE) {
+	if (markdowndoc_get_file(zstream, 1, &stream, &close, &f) == FAILURE) {
 		RETURN_FALSE;
 	}
 
 	status = mkd_generateline(markdown, markdown_len, f, (mkd_flag_t) flags);
-	markdown_sync_stream_and_file(stream, close, f TSRMLS_CC);
+	markdown_sync_stream_and_file(stream, close, f);
 
-	if (markdown_handle_io_error(status, "mkd_generateline" TSRMLS_CC) == FAILURE) {
+	if (markdown_handle_io_error(status, "mkd_generateline") == FAILURE) {
 		RETURN_FALSE;
 	}
 	
@@ -185,18 +184,18 @@ PHP_METHOD(markdowndoc, writeFragment)
 PHP_METHOD(markdowndoc, setReferencePrefix)
 {
 	char			*prefix;
-	int				prefix_len;
+	size_t			prefix_len;
 	discount_object	*dobj;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s",
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "s",
 			&prefix, &prefix_len) == FAILURE) {
 		RETURN_FALSE;
 	}
-	if ((dobj = markdowndoc_get_object(getThis(), 0 TSRMLS_CC)) == NULL) {
+	if ((dobj = markdowndoc_get_object(getThis(), 0)) == NULL) {
 		RETURN_FALSE;
 	}
 	if (mkd_is_compiled(dobj->markdoc)) {
-		zend_throw_exception_ex(spl_ce_LogicException, 0 TSRMLS_CC,
+		zend_throw_exception_ex(spl_ce_LogicException, 0,
 			"Invalid state: the markdown document has already been compiled");
 		RETURN_FALSE;
 	}

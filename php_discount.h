@@ -45,6 +45,29 @@ extern zend_module_entry discount_module_entry;
 #include "TSRM.h"
 #endif
 
+static inline void *PHP_DISCOUNT_OBJ(zend_object *zo, zval *zv)
+{
+	if (!zo) {
+		zo = Z_OBJ_P(zv);
+	}
+	return (char *) zo - zo->handlers->offset;
+}
+
+static inline zend_string *php_discount_cs2zs(char *s, size_t l)
+{
+	zend_string *str = erealloc(s, sizeof(*str) + l);
+
+	memmove(str->val, str, l);
+	str->val[l] = 0;
+	str->len = l;
+	str->h = 0;
+
+	GC_REFCOUNT(str) = 1;
+	GC_TYPE_INFO(str) = IS_STRING;
+
+	return str;
+}
+
 #ifdef DISCOUNT_GLOBALS
 ZEND_BEGIN_MODULE_GLOBALS(discount)
 	void *dummy;
@@ -57,21 +80,6 @@ ZEND_EXTERN_MODULE_GLOBALS(discount);
 #else
 # define DISCOUNT_G(v) (discount_globals.v)
 #endif
-#endif
-
-/* PHP 5.2 compatibility */
-#if PHP_MAJOR_VERSION == 5 && PHP_MINOR_VERSION < 3
-#define zend_parse_parameters_none() \
-	zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "")
-#define Z_DELREF_P ZVAL_DELREF
-#define Z_ADDREF_P ZVAL_ADDREF
-#define STREAM_ASSUME_REALPATH 0
-#define ALLOC_PERMANENT_ZVAL(z) \
-        (z) = (zval*) malloc(sizeof(zval));
-#undef ZEND_BEGIN_ARG_INFO_EX
-#define ZEND_BEGIN_ARG_INFO_EX(name, pass_rest_by_reference, return_reference, required_num_args) \
-	static const zend_arg_info name[] = { \
-		{ NULL, 0, NULL, 0, 0, 0, pass_rest_by_reference, return_reference, required_num_args },
 #endif
 
 /* discount.c */

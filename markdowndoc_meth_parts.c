@@ -47,14 +47,14 @@ PHP_METHOD(markdowndoc, getToc)
 	if (zend_parse_parameters_none() == FAILURE) {
 		RETURN_FALSE;
 	}
-	if ((dobj = markdowndoc_get_object(getThis(), 1 TSRMLS_CC)) == NULL) {
+	if ((dobj = markdowndoc_get_object(getThis(), 1)) == NULL) {
 		RETURN_FALSE;
 	}
 	
 	status = mkd_toc(dobj->markdoc, &data);
 	if (status < 0) {
 		/* no doc->ctx, shouldn't happen */
-		zend_throw_exception_ex(spl_ce_RuntimeException, 0 TSRMLS_CC,
+		zend_throw_exception_ex(spl_ce_RuntimeException, 0,
 			"Call to library function mkd_toc() failed (should not happen!)");
 		RETURN_FALSE;
 	}
@@ -64,7 +64,7 @@ PHP_METHOD(markdowndoc, getToc)
 		RETURN_FALSE; /* no MKD_TOC */
 	}
 	/* empty string included in general case */
-	RETURN_STRINGL(data, status, 0);	
+	RETURN_STR(php_discount_cs2zs(data, status));
 }
 /* }}} */
 
@@ -78,7 +78,7 @@ PHP_METHOD(markdowndoc, getCss)
 	if (zend_parse_parameters_none() == FAILURE) {
 		RETURN_FALSE;
 	}
-	if ((dobj = markdowndoc_get_object(getThis(), 1 TSRMLS_CC)) == NULL) {
+	if ((dobj = markdowndoc_get_object(getThis(), 1)) == NULL) {
 		RETURN_FALSE;
 	}
 	
@@ -90,7 +90,7 @@ PHP_METHOD(markdowndoc, getCss)
 		RETURN_FALSE;
 	}
 	assert(data != NULL);
-	RETURN_STRINGL(data, status, 0);	
+	RETURN_STR(php_discount_cs2zs(data, status));
 }
 /* }}} */
 
@@ -104,21 +104,21 @@ PHP_METHOD(markdowndoc, writeToc)
 	FILE			*f;
 	int				status;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &zstream) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "z", &zstream) == FAILURE) {
 		RETURN_FALSE;
 	}
 	/* no compilation required */
-	if ((dobj = markdowndoc_get_object(getThis(), 1 TSRMLS_CC)) == NULL) {
+	if ((dobj = markdowndoc_get_object(getThis(), 1)) == NULL) {
 		RETURN_FALSE;
 	}
-	if (markdowndoc_get_file(zstream, 1, &stream, &close, &f TSRMLS_CC) == FAILURE) {
+	if (markdowndoc_get_file(zstream, 1, &stream, &close, &f) == FAILURE) {
 		RETURN_FALSE;
 	}
 	
 	status = mkd_generatetoc(dobj->markdoc, f);
-	markdown_sync_stream_and_file(stream, close, f TSRMLS_CC);
+	markdown_sync_stream_and_file(stream, close, f);
 
-	if (markdown_handle_io_error(status, "mkd_generatetoc" TSRMLS_CC) == FAILURE) {
+	if (markdown_handle_io_error(status, "mkd_generatetoc") == FAILURE) {
 		RETURN_FALSE;
 	}
 
@@ -136,21 +136,21 @@ PHP_METHOD(markdowndoc, writeCss)
 	FILE			*f;
 	int				status;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &zstream) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "z", &zstream) == FAILURE) {
 		RETURN_FALSE;
 	}
 	/* no compilation required */
-	if ((dobj = markdowndoc_get_object(getThis(), 1 TSRMLS_CC)) == NULL) {
+	if ((dobj = markdowndoc_get_object(getThis(), 1)) == NULL) {
 		RETURN_FALSE;
 	}
-	if (markdowndoc_get_file(zstream, 1, &stream, &close, &f TSRMLS_CC) == FAILURE) {
+	if (markdowndoc_get_file(zstream, 1, &stream, &close, &f) == FAILURE) {
 		RETURN_FALSE;
 	}
 	
 	status = mkd_generatecss(dobj->markdoc, f);
-	markdown_sync_stream_and_file(stream, close, f TSRMLS_CC);
+	markdown_sync_stream_and_file(stream, close, f);
 
-	if (markdown_handle_io_error(status, "mkd_generatecss" TSRMLS_CC) == FAILURE) {
+	if (markdown_handle_io_error(status, "mkd_generatecss") == FAILURE) {
 		RETURN_FALSE;
 	}
 

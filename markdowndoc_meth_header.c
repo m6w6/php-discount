@@ -44,7 +44,7 @@ PHP_METHOD(markdowndoc, getTitle)
 	if (zend_parse_parameters_none() == FAILURE) {
 		RETURN_FALSE;
 	}
-	if ((dobj = markdowndoc_get_object(getThis(), 0 TSRMLS_CC)) == NULL) {
+	if ((dobj = markdowndoc_get_object(getThis(), 0)) == NULL) {
 		RETURN_FALSE;
 	}
 
@@ -52,7 +52,7 @@ PHP_METHOD(markdowndoc, getTitle)
 	if (data == NULL) {
 		RETURN_EMPTY_STRING()
 	} else {
-		RETURN_STRING(data, 1); /* must dup */
+		RETURN_STRING(data); /* must dup */
 	}
 }
 /* }}} */
@@ -66,7 +66,7 @@ PHP_METHOD(markdowndoc, getAuthor)
 	if (zend_parse_parameters_none() == FAILURE) {
 		RETURN_FALSE;
 	}
-	if ((dobj = markdowndoc_get_object(getThis(), 0 TSRMLS_CC)) == NULL) {
+	if ((dobj = markdowndoc_get_object(getThis(), 0)) == NULL) {
 		RETURN_FALSE;
 	}
 
@@ -74,7 +74,7 @@ PHP_METHOD(markdowndoc, getAuthor)
 	if (data == NULL) {
 		RETURN_EMPTY_STRING()
 	} else {
-		RETURN_STRING(data, 1); /* must dup */
+		RETURN_STRING(data); /* must dup */
 	}
 }
 /* }}} */
@@ -88,7 +88,7 @@ PHP_METHOD(markdowndoc, getDate)
 	if (zend_parse_parameters_none() == FAILURE) {
 		RETURN_FALSE;
 	}
-	if ((dobj = markdowndoc_get_object(getThis(), 0 TSRMLS_CC)) == NULL) {
+	if ((dobj = markdowndoc_get_object(getThis(), 0)) == NULL) {
 		RETURN_FALSE;
 	}
 
@@ -96,7 +96,7 @@ PHP_METHOD(markdowndoc, getDate)
 	if (data == NULL) {
 		RETURN_EMPTY_STRING()
 	} else {
-		RETURN_STRING(data, 1); /* must dup */
+		RETURN_STRING(data); /* must dup */
 	}
 }
 /* }}} */

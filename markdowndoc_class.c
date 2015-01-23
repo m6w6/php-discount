@@ -124,9 +124,9 @@ static zend_function_entry class_methods[] = {
     {NULL, NULL, NULL, 0, 0}
 };
 
-static void free_object_storage(void *object TSRMLS_DC)
+static void free_object_storage(zend_object *object)
 {
-	discount_object *dobj = object;
+	discount_object *dobj = PHP_DISCOUNT_OBJ(object, NULL);
 
 	if (dobj->markdoc != NULL) {
 		mkd_cleanup(dobj->markdoc);
@@ -140,23 +140,16 @@ static void free_object_storage(void *object TSRMLS_DC)
 	markdowndoc_free_callback(&dobj->url_fci, &dobj->url_fcc);
 	markdowndoc_free_callback(&dobj->attr_fci, &dobj->attr_fcc);
 
-	zend_objects_free_object_storage(object TSRMLS_CC);
+	zend_object_std_dtor(object);
 }
 
-static zend_object_value ce_create_object(zend_class_entry *class_type TSRMLS_DC)
+static zend_object *ce_create_object(zend_class_entry *class_type)
 {
-    zend_object_value zov;
     discount_object   *dobj;
  
-    dobj = emalloc(sizeof *dobj);
-    zend_object_std_init((zend_object *) dobj, class_type TSRMLS_CC);
- 
-#if PHP_VERSION_ID < 50399
-    zend_hash_copy(dobj->std.properties, &(class_type->default_properties),
-        (copy_ctor_func_t) zval_add_ref, NULL, sizeof(zval*));
-#else
+    dobj = emalloc(sizeof(*dobj) + (class_type->default_properties_count - 1) * sizeof(zval));
+    zend_object_std_init(&dobj->std, class_type);
     object_properties_init(&dobj->std, class_type);
-#endif
 
 	dobj->markdoc		= NULL;
 	dobj->in_callback	= 0;
@@ -166,12 +159,9 @@ static zend_object_value ce_create_object(zend_class_entry *class_type TSRMLS_DC
 	dobj->attr_fcc		= NULL;
 	dobj->ref_prefix	= NULL;
  
-    zov.handle = zend_objects_store_put(dobj,
-        (zend_objects_store_dtor_t) zend_objects_destroy_object,
-        (zend_objects_free_object_storage_t) free_object_storage,
-        NULL TSRMLS_CC);
-    zov.handlers = &object_handlers;
-    return zov;
+    dobj->std.handlers = &object_handlers;
+
+    return &dobj->std;
 }
 
 /* {{{ Constructor; protected no-op.
@@ -188,31 +178,31 @@ static PHP_METHOD(markdowndoc, __construct)
 /* }}} */
 
 /* {{{ Public functions */
-discount_object* markdowndoc_get_object(zval *zobj, int require_compiled TSRMLS_DC)
+discount_object* markdowndoc_get_object(zval *zobj, int require_compiled)
 {
     discount_object *dobj;
 	
 	if (zobj == NULL) {
-		zend_throw_exception_ex(spl_ce_LogicException, 0 TSRMLS_CC,
+		zend_throw_exception_ex(spl_ce_LogicException, 0,
 			"Unexpected null pointer. This should not happen");
 		return NULL;
 	}
 
-	dobj = zend_object_store_get_object(zobj TSRMLS_CC);
+	dobj = PHP_DISCOUNT_OBJ(NULL, zobj);
 	if (dobj->markdoc == NULL) {
-		zend_throw_exception_ex(spl_ce_LogicException, 0 TSRMLS_CC,
+		zend_throw_exception_ex(spl_ce_LogicException, 0,
 			"Invalid state: the markdown document is not initialized");
 		return NULL;
 	}
 
 	if (dobj->in_callback) {
-		zend_throw_exception_ex(spl_ce_LogicException, 0 TSRMLS_CC,
+		zend_throw_exception_ex(spl_ce_LogicException, 0,
 			"Attempt to call object method from inside callback");
 		return NULL;
 	}
 
 	if (require_compiled && !mkd_is_compiled(dobj->markdoc)) {
-		zend_throw_exception_ex(spl_ce_LogicException, 0 TSRMLS_CC,
+		zend_throw_exception_ex(spl_ce_LogicException, 0,
 			"Invalid state: the markdown document has not been compiled");
 		return NULL;
 	}
@@ -220,16 +210,16 @@ discount_object* markdowndoc_get_object(zval *zobj, int require_compiled TSRMLS_
     return dobj;
 }
 
-php_stream *markdowndoc_get_stream(zval *arg, int write, int *must_close TSRMLS_DC)
+php_stream *markdowndoc_get_stream(zval *arg, int write, int *must_close)
 {
 	php_stream *ret;
 
 	*must_close = 0;
 
 	if (Z_TYPE_P(arg) == IS_RESOURCE) {
-		php_stream_from_zval_no_verify(ret, &arg);
+		php_stream_from_zval_no_verify(ret, arg);
 		if (ret == NULL) {
-			zend_throw_exception_ex(spl_ce_InvalidArgumentException, 0 TSRMLS_CC,
+			zend_throw_exception_ex(spl_ce_InvalidArgumentException, 0,
 				"The resource passed is not a stream");
 		}
 	} else if (Z_TYPE_P(arg) == IS_STRING) {
@@ -238,7 +228,7 @@ is_string:
 		mode = write?"w":"r";
 		ret  = php_stream_open_wrapper_ex(Z_STRVAL_P(arg), (char *) mode, 0, NULL, NULL);
 		if (ret == NULL) {
-			zend_throw_exception_ex(spl_ce_InvalidArgumentException, 0 TSRMLS_CC,
+			zend_throw_exception_ex(spl_ce_InvalidArgumentException, 0,
 				"Could not open path \"%s\" for %s", Z_STRVAL_P(arg),
 				write?"writing":"reading");
 		} else {
@@ -246,21 +236,20 @@ is_string:
 		}
 	} else {
 		/* not a string or a resource; convert to string */
-		SEPARATE_ZVAL(&arg);
-		convert_to_string(arg);
+		convert_to_string_ex(arg);
 		goto is_string;
 	}
 
 	return ret;
 }
 
-int markdowndoc_get_file(zval *arg, int write, php_stream **stream, int *must_close, FILE **file TSRMLS_DC)
+int markdowndoc_get_file(zval *arg, int write, php_stream **stream, int *must_close, FILE **file)
 {
 	*stream		= NULL;
 	*must_close	= 0;
 	*file		= NULL;
 
-	*stream = markdowndoc_get_stream(arg, write, must_close TSRMLS_CC);
+	*stream = markdowndoc_get_stream(arg, write, must_close);
 	if (*stream == NULL) {
 		return FAILURE;
 	}
@@ -271,7 +260,7 @@ int markdowndoc_get_file(zval *arg, int write, php_stream **stream, int *must_cl
 		}
 		*stream		= NULL;
 		*must_close	= 0;
-		zend_throw_exception_ex(spl_ce_RuntimeException, 0 TSRMLS_CC,
+		zend_throw_exception_ex(spl_ce_RuntimeException, 0,
 			"Could not cast stream into an stdlib file pointer");
 		return FAILURE;
 	}
@@ -279,7 +268,7 @@ int markdowndoc_get_file(zval *arg, int write, php_stream **stream, int *must_cl
 	return SUCCESS;
 }
 
-int markdown_sync_stream_and_file(php_stream *stream, int close, FILE *file TSRMLS_DC)
+int markdown_sync_stream_and_file(php_stream *stream, int close, FILE *file)
 {
 	long	pos;
 	int		status;
@@ -302,15 +291,15 @@ int markdown_sync_stream_and_file(php_stream *stream, int close, FILE *file TSRM
 	return status ? FAILURE : SUCCESS;
 }
 
-int markdown_handle_io_error(int status, const char *lib_func TSRMLS_DC)
+int markdown_handle_io_error(int status, const char *lib_func)
 {
 	if (status < 0) {
 		if (errno == 0) {
-			zend_throw_exception_ex(spl_ce_RuntimeException, 0 TSRMLS_CC,
+			zend_throw_exception_ex(spl_ce_RuntimeException, 0,
 				"Unspecified error in library function %s", lib_func);
 			return FAILURE;
 		} else {
-			php_error_docref0(NULL TSRMLS_CC, E_WARNING, "I/O error in library "
+			php_error_docref0(NULL, E_WARNING, "I/O error in library "
 				"function %s: %s (%d)", lib_func, strerror(errno), errno);
 			errno = 0;
 			return FAILURE;
@@ -331,12 +320,10 @@ void markdowndoc_store_callback(
 	if (fci_in) {
 		*fci_out = emalloc(sizeof **fci_out);
 		**fci_out = *fci_in;
-		Z_ADDREF_P((**fci_out).function_name);
-#if PHP_VERSION_ID >= 50300
-		if ((**fci_out).object_ptr != NULL) {
-			Z_ADDREF_P((**fci_out).object_ptr);
+		Z_TRY_ADDREF((**fci_out).function_name);
+		if ((**fci_out).object != NULL) {
+			++GC_REFCOUNT((**fci_out).object);
 		}
-#endif
 	}
 
 	if (fcc_in) {
@@ -349,11 +336,9 @@ void markdowndoc_free_callback(zend_fcall_info **fci, zend_fcall_info_cache **fc
 {
 	if (*fci != NULL) {
 		zval_ptr_dtor(&(*fci)->function_name);
-#if PHP_VERSION_ID >= 50300
-		if ((*fci)->object_ptr != NULL) {
-			zval_ptr_dtor(&(*fci)->object_ptr);
+		if ((*fci)->object != NULL) {
+			zend_objects_store_del((*fci)->object);
 		}
-#endif
 		efree(*fci);
 		*fci = NULL;
 	}
@@ -371,14 +356,16 @@ void markdowndoc_module_start(INIT_FUNC_ARGS)
 	memcpy(&object_handlers, zend_get_std_object_handlers(),
 		sizeof object_handlers);
 	object_handlers.clone_obj = NULL;
+	object_handlers.offset = XtOffsetOf(discount_object, std);
+	object_handlers.free_obj = free_object_storage;
 
 	INIT_CLASS_ENTRY(ce, "MarkdownDocument", class_methods);
-	markdowndoc_ce = zend_register_internal_class(&ce TSRMLS_CC);
+	markdowndoc_ce = zend_register_internal_class(&ce);
 	markdowndoc_ce->create_object = ce_create_object;
 
 #define DISCOUNT_CONST(name) \
 	zend_declare_class_constant_long(markdowndoc_ce, #name, sizeof(#name) -1, \
-		MKD_ ## name TSRMLS_CC)
+		MKD_ ## name)
 
 	DISCOUNT_CONST(NOLINKS);
 	DISCOUNT_CONST(NOIMAGE);

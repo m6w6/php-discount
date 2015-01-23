@@ -45,58 +45,52 @@ static char *proxy_callback(
 	char				  *callback_name
 	)
 {
-	zval			*zurl,
-					*retval_ptr	= NULL,
-					**params;
+	zval			zurl,
+					retval_tmp;
 	int				retval;
 	char			*result = NULL;
-	TSRMLS_FETCH();
 
 	if (fci == NULL || fci->size == 0)
 		return NULL; /* should not happen */
 
-	MAKE_STD_ZVAL(zurl);
-	ZVAL_STRINGL(zurl, url, url_len, 1);
-	params				= &zurl;
-	fci->retval_ptr_ptr	= &retval_ptr;
-	fci->params			= &params;
-	fci->param_count		= 1;
+	ZVAL_UNDEF(&retval_tmp);
+	ZVAL_STRINGL(&zurl, url, url_len);
+	fci->retval			= &retval_tmp;
+	fci->params			= &zurl;
+	fci->param_count	= 1;
 	fci->no_separation	= 1;
 
-	retval = zend_call_function(fci, fcc TSRMLS_CC);
-	if (retval != SUCCESS || fci->retval_ptr_ptr == NULL) {
+	retval = zend_call_function(fci, fcc);
+	if (retval != SUCCESS) {
 		/* failure was most likely due to a previous exception (probably
 		 * in a previous URL), so don't throw yet another exception on
 		 * top of it */
 		if (!EG(exception)) {
-			zend_throw_exception_ex(spl_ce_RuntimeException, 0 TSRMLS_CC,
+			zend_throw_exception_ex(spl_ce_RuntimeException, 0,
 				"Call to PHP %s callback has failed", callback_name);
 		}
 	} else {
 		/* success in zend_call_function, but there may've been an exception */
 		/* may have been changed by return by reference */
-		retval_ptr = *fci->retval_ptr_ptr;
-		if (retval_ptr == NULL) {
+		if (Z_ISUNDEF_P(fci->retval)) {
 			/* no retval - most likely an exception, but we feel confortable
 			 * stacking an exception here */
-			zend_throw_exception_ex(spl_ce_RuntimeException, 0 TSRMLS_CC,
+			zend_throw_exception_ex(spl_ce_RuntimeException, 0,
 				"Call to PHP %s callback has failed (%s)",
 				callback_name, EG(exception)?"exception":"no return value");
-		} else if (Z_TYPE_P(retval_ptr) == IS_NULL) {
+		} else if (Z_TYPE_P(fci->retval) == IS_NULL) {
 			/* use the default string for the url */
 		} else {
-			if (Z_TYPE_P(retval_ptr) != IS_STRING) {
-				SEPARATE_ZVAL(&retval_ptr);
-				convert_to_string(retval_ptr);
-			}
-			result = estrndup(Z_STRVAL_P(retval_ptr), Z_STRLEN_P(retval_ptr));
+			zend_string *zs = zval_get_string(fci->retval);
+
+			result = estrndup(zs->val, zs->len);
+			zend_string_release(zs);
 		}
 	}
 
 	zval_ptr_dtor(&zurl);
-	if (retval_ptr != NULL) {
-		zval_ptr_dtor(&retval_ptr);
-	}
+	zval_ptr_dtor(fci->retval);
+
 	return result;
 }
 
@@ -145,10 +139,10 @@ PHP_METHOD(markdowndoc, setUrlCallback)
 	zend_fcall_info_cache	fcc;
 	discount_object			*dobj;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "f!", &fci, &fcc) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "f!", &fci, &fcc) == FAILURE) {
 		RETURN_FALSE;
 	}
-	if ((dobj = markdowndoc_get_object(getThis(), 0 TSRMLS_CC)) == NULL) {
+	if ((dobj = markdowndoc_get_object(getThis(), 0)) == NULL) {
 		RETURN_FALSE;
 	}
 
@@ -173,10 +167,10 @@ PHP_METHOD(markdowndoc, setAttributesCallback)
 	zend_fcall_info_cache	fcc;
 	discount_object			*dobj;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "f!", &fci, &fcc) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "f!", &fci, &fcc) == FAILURE) {
 		RETURN_FALSE;
 	}
-	if ((dobj = markdowndoc_get_object(getThis(), 0 TSRMLS_CC)) == NULL) {
+	if ((dobj = markdowndoc_get_object(getThis(), 0)) == NULL) {
 		RETURN_FALSE;
 	}
 
