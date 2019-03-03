@@ -322,7 +322,7 @@ void markdowndoc_store_callback(
 		**fci_out = *fci_in;
 		Z_TRY_ADDREF((**fci_out).function_name);
 		if ((**fci_out).object != NULL) {
-			++GC_REFCOUNT((**fci_out).object);
+			GC_ADDREF((**fci_out).object);
 		}
 	}
 

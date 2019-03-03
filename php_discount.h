@@ -62,7 +62,7 @@ static inline zend_string *php_discount_cs2zs(char *s, size_t l)
 	str->len = l;
 	str->h = 0;
 
-	GC_REFCOUNT(str) = 1;
+	GC_SET_REFCOUNT(str, 1);
 	GC_TYPE_INFO(str) = IS_STRING;
 
 	return str;
